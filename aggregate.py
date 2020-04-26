@@ -67,7 +67,7 @@ def aggregate_feed(name, url, base_dir):
 
     for prev in previous:
         # print(prev)
-        et, root, items = load_feed(prev)
+        _, _, items = load_feed(prev)
 
         for item in items:
             title = item.find("title").text
