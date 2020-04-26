@@ -1,0 +1,6 @@
+.idea/
+
+wayback/
+
+fetched/**/*.xml
+!fetched/**/feed_all.xml
