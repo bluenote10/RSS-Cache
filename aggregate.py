@@ -5,10 +5,13 @@ Inspired by: https://stackoverflow.com/a/42685246/1804173
 
 from __future__ import print_function, unicode_literals
 
+import datetime
 import fnmatch
 import os
 
 import xml.etree.ElementTree
+
+import jinja2
 
 
 def find_all_files(base, pattern="*"):
@@ -19,7 +22,7 @@ def find_all_files(base, pattern="*"):
     return sorted(matches, reverse=True)    # newer first
 
 
-def parse(feed_file):
+def load_feed(feed_file):
 
     et = xml.etree.ElementTree.parse(feed_file)
     root = et.getroot()
@@ -42,27 +45,29 @@ FEEDS = {
 }
 
 
-def fetch_feed(name, url, basedir):
-    wayback_dir = os.path.join(basedir, "wayback")
+def aggregate_feed(name, url, base_dir):
+    wayback_dir = os.path.join(base_dir, "wayback")
 
-    lastest = os.path.join(basedir, "latest.xml")
-    existing = os.path.join(basedir, "feed.xml")
+    lastest = os.path.join(base_dir, "latest.xml")
+    existing = os.path.join(base_dir, "feed.xml")
     waybacks = find_all_files(wayback_dir)
 
     previous = [existing] + waybacks
 
-    et, root, items = parse(lastest)
+    et, root, items = load_feed(lastest)
 
+    num_entries = 0
     for item in items:
         title_el = item.find("title")
         pub_date_el = item.find("pubDate")
         print("{:<80s} - {}".format(title_el.text, pub_date_el.text))
+        num_entries += 1
 
     existing_items = items
 
     for prev in previous:
-        print(prev)
-        et, root, items = parse(prev)
+        # print(prev)
+        et, root, items = load_feed(prev)
 
         for item in items:
             title = item.find("title").text
@@ -77,21 +82,46 @@ def fetch_feed(name, url, basedir):
                 print("{:<80s} - {} - from: {}".format(title, pub_date, prev))
                 existing_items.append(item)
                 root.find("channel").append(item)
+                num_entries += 1
 
-    et.write(os.path.join(basedir, "feed_all.xml"))
+    outpath = os.path.join(base_dir, "feed_all.xml")
+    et.write(outpath)
 
-    import IPython; IPython.embed()
+    return outpath, num_entries
+
+
+def render_index(root_dir, links):
+    env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(searchpath=root_dir),
+        autoescape=jinja2.select_autoescape(['html', 'xml'])
+    )
+    template = env.get_template("template.html")
+    output = template.render(
+        links=links,
+    )
+    with open(os.path.join(root_dir, "index.html"), "w") as f:
+        f.write(output)
 
 
 def main():
+    root_dir = os.path.dirname(__file__)
+
+    links = []
+
     for feed_name, feed_url in FEEDS.items():
-        basedir = os.path.join(os.path.dirname(__file__), "fetched", feed_name)
-        if not os.path.exists(basedir):
-            print("Feed directory does not exist: {}".format(basedir))
-        fetch_feed(feed_name, feed_url, basedir)
+        base_dir = os.path.join(root_dir, "fetched", feed_name)
+        if not os.path.exists(base_dir):
+            print("Feed directory does not exist: {}".format(base_dir))
+        outpath, num_entries = aggregate_feed(feed_name, feed_url, base_dir)
 
+        links.append({
+            "name": feed_name,
+            "num_entries": num_entries,
+            "target": os.path.relpath(outpath, root_dir),
+            "time_updated": str(datetime.datetime.now()),
+        })
 
-
+    render_index(root_dir, links)
 
 
 if __name__ == "__main__":
