@@ -5,6 +5,7 @@ Inspired by: https://stackoverflow.com/a/42685246/1804173
 
 from __future__ import print_function, unicode_literals
 
+import argparse
 import datetime
 import fnmatch
 import os
@@ -41,7 +42,8 @@ def load_feed(feed_file):
 
 
 FEEDS = {
-    "sedaily": "https://softwareengineeringdaily.com/category/podcast/feed"
+    "sedaily": "https://softwareengineeringdaily.com/category/podcast/feed",
+    "changelog": "https://changelog.com/podcast/feed",
 }
 
 
@@ -103,7 +105,20 @@ def render_index(root_dir, links):
         f.write(output)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Fuse RSS entries")
+    parser.add_argument(
+        "show",
+        required=True,
+        help="The show name to fuse"
+    )
+    args = parser.parse_args()
+    return args
+
+
 def main():
+    #args = parse_args()
+
     root_dir = os.path.dirname(__file__)
 
     links = []
